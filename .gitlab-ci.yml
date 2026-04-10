@@ -1,0 +1,45 @@
+stages:
+  - test
+  - build
+
+# ------------------------------------------------------------------
+# Node.js jobs — picked up by runner-node (tag: node)
+# ------------------------------------------------------------------
+node:test:
+  stage: test
+  image: node:20
+  tags:
+    - node
+  script:
+    - npm ci
+    - npm test
+
+node:build:
+  stage: build
+  image: node:20
+  tags:
+    - node
+  script:
+    - npm ci
+    - npm run build
+
+# ------------------------------------------------------------------
+# Python jobs — picked up by runner-python (tag: python)
+# ------------------------------------------------------------------
+python:test:
+  stage: test
+  image: python:3.12
+  tags:
+    - python
+  script:
+    - pip install -r requirements.txt
+    - pytest
+
+python:build:
+  stage: build
+  image: python:3.12
+  tags:
+    - python
+  script:
+    - pip install build
+    - python -m build
