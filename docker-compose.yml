@@ -1,0 +1,72 @@
+services:
+  gitlab:
+    image: gitlab/gitlab-ce:latest
+    container_name: gitlab
+    hostname: gitlab.local
+    ports:
+      - "80:80"
+      - "443:443"
+      - "2222:22"
+    volumes:
+      - gitlab-config:/etc/gitlab
+      - gitlab-logs:/var/log/gitlab
+      - gitlab-data:/var/opt/gitlab
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://localhost'
+        puma['worker_processes'] = 0
+        sidekiq['max_concurrency'] = 5
+        prometheus_monitoring['enable'] = false
+        gitlab_rails['env'] = { 'MALLOC_CONF' => 'dirty_decay_ms:1000,muzzy_decay_ms:1000' }
+    shm_size: '512m'
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -o /dev/null -w '%{http_code}' http://localhost | grep -qE '^(200|302)$'"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+
+  runner-python:
+    image: gitlab/gitlab-runner:latest
+    container_name: runner-python
+    restart: always
+    depends_on:
+      gitlab:
+        condition: service_healthy
+    volumes:
+      - runner-python-config:/etc/gitlab-runner
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./runners/register.sh:/register.sh:ro
+    environment:
+      GITLAB_URL: http://gitlab
+      RUNNER_NAME: runner-python
+      RUNNER_TAG: python
+      RUNNER_IMAGE: python:3.12
+      RUNNER_TOKEN: ${PYTHON_RUNNER_TOKEN}
+    entrypoint: ["/bin/bash", "/register.sh"]
+
+  runner-node:
+    image: gitlab/gitlab-runner:latest
+    container_name: runner-node
+    restart: always
+    depends_on:
+      gitlab:
+        condition: service_healthy
+    volumes:
+      - runner-node-config:/etc/gitlab-runner
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./runners/register.sh:/register.sh:ro
+    environment:
+      GITLAB_URL: http://gitlab
+      RUNNER_NAME: runner-node
+      RUNNER_TAG: node
+      RUNNER_IMAGE: node:20
+      RUNNER_TOKEN: ${NODE_RUNNER_TOKEN}
+    entrypoint: ["/bin/bash", "/register.sh"]
+
+volumes:
+  gitlab-config:
+  gitlab-logs:
+  gitlab-data:
+  runner-python-config:
+  runner-node-config:
